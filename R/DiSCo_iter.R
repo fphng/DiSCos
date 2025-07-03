@@ -15,6 +15,7 @@
 #' @inheritParams DiSCo
 #' @param controls.id List of strings specifying the column names for the control units' identifiers.
 #' @param evgrid A vector of grid points on which to evaluate the quantile functions.
+#' @param grid.pre Pre-computed grid produced by \code{\link{getGrid}} used to evaluate the empirical CDFs.
 #' @param T0 Integer indicating the last pre-treatment period starting from 1.
 #'
 #' @return A list with the following elements:
@@ -45,7 +46,9 @@
 #'   \item \code{controls.q } Quantiles for the control units, evaluated on the specified grid.
 #' }
 #' @export
-DiSCo_iter <- function(yy, df, evgrid, id_col.target, M, G, T0, qmethod=NULL, qtype=7, q_min=0, q_max=1, simplex=FALSE, controls.id, grid.cat, mixture) {
+DiSCo_iter <- function(yy, df, evgrid, grid.pre, id_col.target, M, G, T0,
+                       qmethod=NULL, qtype=7, q_min=0, q_max=1,
+                       simplex=FALSE, controls.id, grid.cat, mixture) {
 
   # target
   target <- df[(id_col == id_col.target) & (t_col == yy)]$y_col
@@ -71,8 +74,7 @@ DiSCo_iter <- function(yy, df, evgrid, id_col.target, M, G, T0, qmethod=NULL, qt
 
   # sample grid
   if (is.null(grid.cat)) {
-    grid <- list(grid.min = NA, grid.max = NA, grid.rand = NA, grid.ord = NA)
-    grid[c("grid.min", "grid.max", "grid.rand", "grid.ord")] <- getGrid(target, controls, G) # TODO: this can be done just once
+    grid <- grid.pre
   } else {
     grid <- list(grid.min = min(grid.cat), grid.max = max(grid.cat), grid.rand = grid.cat, grid.ord = grid.cat)
   }
