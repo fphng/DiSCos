@@ -8,6 +8,7 @@ utils::globalVariables(c("y_col", "id_col", "time_col", "t_col", "group", "x", "
 #' @details This function is called for every time period in the DiSCo function. It implements the DiSCo method for a single time period, as well as the mixture of distributions approach.
 #' The corresponding results for each time period can be accessed in the `results.periods` list of the output of the DiSCo function. The DiSCo function returns the average weight for each unit across all periods,
 #' calculated as a uniform mean, as well as the counterfactual target distribution produced as the weighted average of the control distributions for each period, using these averaged weights.
+#' A common evaluation grid for the empirical CDFs is generated once using `getGrid()` and passed to the period-specific estimator to avoid redundant computation.
 #'
 #' @param df Data frame or data table containing the distributional data for the target and control units. The data table should contain the following columns:
 #' \itemize{
@@ -145,14 +146,31 @@ DiSCo <- function(df, id_col.target, t0, M = 1000, G = 1000, num.cores = 1, perm
   evgrid = seq(from=0,to=1,length.out=G+1)
 
   #---------------------------------------------------------------------------
+  ### set up evaluation grid for empirical CDFs
+  #---------------------------------------------------------------------------
+  controls.id <- unique(df[id_col != id_col.target]$id_col) # list of control ids
+  if (is.null(grid.cat)) {
+    target_all <- df[id_col == id_col.target]$y_col
+    controls_all <- lapply(controls.id, function(id) df[id_col == id]$y_col)
+    grid.pre <- list(grid.min = NA, grid.max = NA, grid.rand = NA, grid.ord = NA)
+    grid.pre[c("grid.min", "grid.max", "grid.rand", "grid.ord")] <-
+      getGrid(target_all, controls_all, G)
+  } else {
+    grid.pre <- list(grid.min = min(grid.cat), grid.max = max(grid.cat),
+                     grid.rand = grid.cat, grid.ord = grid.cat)
+  }
+
+  #---------------------------------------------------------------------------
   ###  run the main function in parallel for each period
   #---------------------------------------------------------------------------
   periods <- sort(unique(df$t_col)) # we call the iter function on all periods, but won't calculate weights for the post-treatment periods
                                     # TODO: currently we are actually calculating them, but it's not a huge cost
-  controls.id <- unique(df[id_col != id_col.target]$id_col) # list of control ids
-  results.periods <- mclapply.hack(periods, DiSCo_iter, df, evgrid, id_col.target = id_col.target, M = M,
-                                   G = G, T0 = T0, mc.cores = num.cores, qmethod=qmethod, qtype=qtype, q_min=0, q_max=1,
-                                   controls.id=controls.id, simplex=simplex, grid.cat, mixture)
+  results.periods <- mclapply.hack(periods, DiSCo_iter, df, evgrid, grid.pre,
+                                   id_col.target = id_col.target, M = M,
+                                   G = G, T0 = T0, mc.cores = num.cores,
+                                   qmethod=qmethod, qtype=qtype, q_min=0,
+                                   q_max=1, controls.id=controls.id,
+                                   simplex=simplex, grid.cat, mixture)
 
   # turn results.periods into a named list where the name is the period
   names(results.periods) <- as.character(periods)
