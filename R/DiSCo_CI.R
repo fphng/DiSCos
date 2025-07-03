@@ -117,23 +117,30 @@ parseBoots <- function(CI_temp, cl, q_disco, cdf_disco, q_obs, cdf_obs, uniform=
 
   # calculate confidence intervals
   getCIs <- function(btmat, cl, og, uniform) {
+    dims <- dim(btmat)
     bt_diff <- sweep(btmat, c(1,2), og, "-")
 
     if (uniform) {
-      bt_diff <- apply(abs(bt_diff), c(2,3), max) # outputs a G X T_max matrix
-      t_all <- apply(bt_diff, c(1), function(x) stats::quantile(x, probs=cl))
-      t_all <- t(replicate(nrow(og), t_all))
+      mat <- matrix(abs(bt_diff), nrow = dims[1], ncol = dims[2] * dims[3])
+      max_g <- matrixStats::colMaxs(mat, na.rm = TRUE)
+      max_mat <- matrix(max_g, nrow = dims[2], ncol = dims[3])
+      t_all <- matrixStats::rowQuantiles(max_mat, probs = cl)
+      t_all <- matrix(t_all, nrow = dims[1], ncol = dims[2], byrow = TRUE)
       upper <- og + t_all
       lower <- og - t_all
     } else {
-      t_upper <- apply(bt_diff, c(1,2), function(x) stats::quantile(x, probs=(1-cl)/2)) # outputs a G X T_max matrix
-      t_lower <- apply(bt_diff, c(1,2), function(x) stats::quantile(x, probs= cl+(1-cl)/2)) # outputs a G X T_max matrix
+      mat <- matrix(bt_diff, nrow = dims[1] * dims[2], ncol = dims[3])
+      t_upper <- matrixStats::rowQuantiles(mat, probs = (1 - cl)/2)
+      t_lower <- matrixStats::rowQuantiles(mat, probs = cl + (1 - cl)/2)
+      t_upper <- matrix(t_upper, nrow = dims[1], ncol = dims[2])
+      t_lower <- matrix(t_lower, nrow = dims[1], ncol = dims[2])
       upper <- og - t_upper
       lower <- og - t_lower
     }
 
-    se <- apply(btmat, c(1,2), function(x) stats::sd(x)) # outputs a G X T_max matrix
-    return(list("lower"=lower, "upper"=upper, "se" = se))
+    se <- matrixStats::rowSds(matrix(btmat, nrow = dims[1] * dims[2], ncol = dims[3]))
+    se <- matrix(se, nrow = dims[1], ncol = dims[2])
+    return(list("lower" = lower, "upper" = upper, "se" = se))
   }
   q_CI <- getCIs(q_boot, cl, q_d, uniform)
   cdf_CI <- getCIs(cdf_boot, cl, cdf_d, uniform)
@@ -143,8 +150,8 @@ parseBoots <- function(CI_temp, cl, q_disco, cdf_disco, q_obs, cdf_obs, uniform=
   ## CIs for weights
   weights <- sapply(CI_temp, function(x) x$weights)
   weights_CI <- list(
-    "upper" = apply(weights, c(1), function(x) stats::quantile(x, probs=cl+(1-cl)/2)),
-    "lower"=  apply(weights, c(1), function(x) stats::quantile(x, probs=(1-cl)/2))
+    "upper" = matrixStats::rowQuantiles(weights, probs = cl + (1 - cl)/2),
+    "lower" = matrixStats::rowQuantiles(weights, probs = (1 - cl)/2)
   )
 
   # create CI object

@@ -14,7 +14,8 @@ License: MIT + file LICENSE
 BugReports: https://github.com/Davidvandijcke/DiSCos/issues
 URL: http://www.davidvandijcke.com/DiSCos/, https://github.com/Davidvandijcke/DiSCos
 LazyData: TRUE
-Imports: CVXR, pracma, Rdpack, parallel, evmix, utils, extremeStat, MASS
+Imports: CVXR, pracma, Rdpack, parallel, evmix, utils, extremeStat, MASS,
+    matrixStats
 Depends: 
     data.table,
     R (>= 2.10),
